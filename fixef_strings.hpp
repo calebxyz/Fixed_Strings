@@ -33,6 +33,8 @@ struct FixedStringWrapper{
     constexpr const char* begin(){
     return data_;
     }
+
+    
 }; 
 
 //keeps up to 1mb size string
@@ -67,10 +69,10 @@ constexpr auto FixedStaticString(auto generator){
     return std::string_view(static_data.begin(), static_data.size());
 }
 
-constexpr auto make_crazy_string(std::string_view sc){
+/*constexpr auto make_crazy_string(std::string_view sc){
     std::string s(sc);
     return s+s+s;
-}
+}*/
 
 /*another attemp without constexpr string*/
 template <std::size_t Size>
@@ -89,7 +91,6 @@ struct fixed_string {
             std::copy_n(str, s, _data+size);
             size += s; 
         }(strs), ...);
-        _data[size+1] = 0;
     }
 
 
@@ -110,7 +111,13 @@ struct fixed_string {
     constexpr auto operator<=>(const fixed_string&) const = default;
 
     constexpr auto operator+(const fixed_string& other) const{
-        return fixed_string<this->_size+other._size+1>(_data, other._data);
+        return fixed_string<_size+std::decay_t<decltype(other)>::_size>(_data, other._data);
+    }
+
+    constexpr auto as_array() const{
+        std::array<char, _size+1> res;
+        std::copy_n(_data, _size+1, res.data());
+        return res;
     }
 };
 
@@ -120,15 +127,32 @@ fixed_string(char const (&)[Size]) -> fixed_string<Size - 1>;
 template<fixed_string Name>
 constexpr auto operator""_fs() { return Name; };
 
+template <std::size_t size>
+constexpr auto static_str_impl(const std::array<char, size>& str){
+    std::array<char, size> res; 
+    std::copy_n(str, size, res.data());
+    constexpr auto& static_data =  StaticData<res>();
+    return std::string_view(static_data.begin(), static_data.size());
+}
+
+constexpr auto static_str(auto generator){
+    return static_str_impl(generator());
+}
+
 
 
 int main(){
-    constexpr auto generator1 = []{return make_crazy_string("Hello World!  ");};
+    //constexpr auto generator1 = []{return make_crazy_string("Hello World!  ");};
     constexpr auto x = "*Hello* "_fs;
     constexpr auto y = "*World!*"_fs; 
-    constexpr auto z = x + y;
-    constexpr static auto sv1 = FixedStaticString(generator1);
-    std::cout << sv1;
-    std::cout << std::string_view(z);
-    std::cout << std::string_view(z).size() << (std::string_view(z) == "*Hello* *World!*"sv);
+    //constexpr auto static_z = StaticData<x.data>();
+    //constexpr auto xx = std::string_view(z);
+    constexpr auto generator2 = [x, y](){
+        return(x+y);};
+    constexpr auto zs =  generator2();   
+    //constexpr auto svc = FixedStaticString(generator2);
+    //constexpr static auto sv1 = FixedStaticString(generator1);
+    //std::cout << sv1;
+    std::cout << std::string_view(generator2());
+    //std::cout << std::string_view(z).size() << (std::string_view(z) == "*Hello* *World!*"sv);
 }
